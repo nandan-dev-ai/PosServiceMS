@@ -30,52 +30,6 @@ jobs:
           java -version
           mvn -version
 
-      # 4. Check GitHub DB Secrets
-      - name: Check DB configuration
-        env:
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          if [ -z "$DB_URL" ]; then
-            echo "ERROR: DB_URL secret is not available"
-            exit 1
-          fi
-
-          if [ -z "$DB_USERNAME" ]; then
-            echo "ERROR: DB_USERNAME secret is not available"
-            exit 1
-          fi
-
-          if [ -z "$DB_PASSWORD" ]; then
-            echo "ERROR: DB_PASSWORD secret is not available"
-            exit 1
-          fi
-
-          echo "DB_URL secret is available"
-          echo "DB_USERNAME secret is available"
-          echo "DB_PASSWORD secret is available"
-
-      # 5. Test RDS network connectivity
-      - name: Test RDS connectivity
-        env:
-          DB_URL: ${{ secrets.DB_URL }}
-        run: |
-          DB_HOST=$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://([^:/]+).*#\1#')
-          DB_PORT=$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://[^:]+:([0-9]+).*#\1#')
-
-          echo "Testing database connectivity..."
-          echo "Database host: $DB_HOST"
-          echo "Database port: $DB_PORT"
-
-          if timeout 10 bash -c "</dev/tcp/$DB_HOST/$DB_PORT"; then
-            echo "RDS is reachable from GitHub Actions"
-          else
-            echo "ERROR: RDS is NOT reachable from GitHub Actions"
-            echo "Check your AWS RDS Security Group inbound rule for TCP 5432."
-            exit 1
-          fi
-
       # 6. Build and run tests
       - name: Build and Test
         env:

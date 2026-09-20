@@ -1,5 +1,4 @@
 name: Spring Boot Build
-
 on:
   push:
     branches:
@@ -13,9 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout source code
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # 2. Setup Java 21
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
@@ -23,11 +24,13 @@ jobs:
           distribution: "temurin"
           cache: maven
 
-      - name: Check Java
+      # 3. Check Java and Maven
+      - name: Check Java and Maven
         run: |
           java -version
           mvn -version
 
+      # 4. Check GitHub DB Secrets
       - name: Check DB configuration
         env:
           DB_URL: ${{ secrets.DB_URL }}
@@ -35,24 +38,45 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           if [ -z "$DB_URL" ]; then
-            echo "DB_URL secret is NOT available"
+            echo "ERROR: DB_URL secret is not available"
             exit 1
           fi
 
           if [ -z "$DB_USERNAME" ]; then
-            echo "DB_USERNAME secret is NOT available"
+            echo "ERROR: DB_USERNAME secret is not available"
             exit 1
           fi
 
           if [ -z "$DB_PASSWORD" ]; then
-            echo "DB_PASSWORD secret is NOT available"
+            echo "ERROR: DB_PASSWORD secret is not available"
             exit 1
           fi
 
-          echo "DB_URL is available"
-          echo "DB_USERNAME is available"
-          echo "DB_PASSWORD is available"
+          echo "DB_URL secret is available"
+          echo "DB_USERNAME secret is available"
+          echo "DB_PASSWORD secret is available"
 
+      # 5. Test RDS network connectivity
+      - name: Test RDS connectivity
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+        run: |
+          DB_HOST=$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://([^:/]+).*#\1#')
+          DB_PORT=$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://[^:]+:([0-9]+).*#\1#')
+
+          echo "Testing database connectivity..."
+          echo "Database host: $DB_HOST"
+          echo "Database port: $DB_PORT"
+
+          if timeout 10 bash -c "</dev/tcp/$DB_HOST/$DB_PORT"; then
+            echo "RDS is reachable from GitHub Actions"
+          else
+            echo "ERROR: RDS is NOT reachable from GitHub Actions"
+            echo "Check your AWS RDS Security Group inbound rule for TCP 5432."
+            exit 1
+          fi
+
+      # 6. Build and run tests
       - name: Build and Test
         env:
           DB_URL: ${{ secrets.DB_URL }}
@@ -61,6 +85,7 @@ jobs:
         run: |
           mvn clean verify
 
+      # 7. Upload generated JAR
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:

@@ -47,4 +47,3 @@ jobs:
         with:
           name: pos-service
           path: target/*.jar
-```
